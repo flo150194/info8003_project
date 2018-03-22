@@ -73,6 +73,7 @@ class Game(object):
         self.reward = -1
 
         # Stochastic dynamics
+        """
         noise = np.random.uniform()
         if noise > 0.7 and noise < 0.8:
             direction = np.mod(direction+1, 4)
@@ -80,6 +81,7 @@ class Game(object):
             direction = np.mod(direction+2, 4)
         elif noise > 0.9 and noise < 1:
             direction = np.mod(direction+3, 4)
+        """
 
         action = ACTIONS[direction]
         destination = map(operator.add, self.player.get_position(), action)
@@ -214,10 +216,3 @@ class Game(object):
 if __name__ == "__main__":
     game = Game(8)
     game.print_board()
-
-
-
-
-
-
-
