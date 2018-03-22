@@ -34,6 +34,7 @@ class Game(object):
         self.quotas = [False for k in range(NB_RESOURCES)]
         self.n= n
         self.time = 0
+        self.reward = 0
 
         # Board instantiation
         for i in range(n):
@@ -63,9 +64,13 @@ class Game(object):
         self.gold_mines_next = [False for k in self.gold_mines]
         self.forests_next = [False for k in self.forests]
 
+    def get_reward(self):
+        return self.reward
+
     def move(self, direction):
 
         self.time += 1
+        self.reward = -1
 
         # Stochastic dynamics
         noise = np.random.uniform()
@@ -86,6 +91,7 @@ class Game(object):
         if row >= 0 and row < self.n and col >= 0 and col < self.n:
             for obj in objects:
                 if obj.distance(destination) == 0:
+                    self.reward -= 1
                     return False
 
             self.player.set_position(destination)
@@ -102,13 +108,16 @@ class Game(object):
             return True
 
         else:
+            self.reward -= 1
             return False
 
     def chop(self):
 
         self.time += 1
+        self.reward = -1
 
         if self.player.get_resource() is not None:
+            self.reward -= 1
             return False
 
         for k in range(len(self.forests)):
@@ -116,11 +125,13 @@ class Game(object):
                 self.player.set_resource(WOOD)
                 return True
 
+        self.reward -= 1
         return False
 
     def harvest(self):
 
         self.time += 1
+        self.reward = -1
 
         if self.player.get_resource() is not None:
             return False
@@ -129,25 +140,29 @@ class Game(object):
             if self.gold_mines_next[k] and self.gold_mines[k].exploit():
                 self.player.set_resource(GOLD)
                 return True
-            else:
-                return False
 
+        self.reward -= 1
         return False
 
     def deposit(self):
 
         self.time +=1
+        self.reward = -1
+
         player_res = self.player.get_resource()
         if player_res is None or not self.chest_next:
+            self.reward -= 1
             return False
 
         if player_res == WOOD:
             self.chest.store_wood()
             if self.chest.get_wood() == TARGET_QUOTA:
+                self.reward += 50
                 self.quotas[WOOD] = True
         else:
             self.chest.store_gold()
             if self.chest.get_gold() == TARGET_QUOTA:
+                self.reward += 50
                 self.quotas[GOLD] = True
 
         self.player.set_resource(None)
