@@ -152,13 +152,23 @@ def max_q(state, task, game, value_fct, completion_fct, eps, destination=None):
             completion_fct[key] = (1 - ALPHA) * completion_fct[key] + \
                                   ALPHA * max(values)
         else:
-            # TODO: TAKE navigate into account  !!!
             key = (task, state, action)
             values = []
             for sub_task in sub_tasks[task]:
-                max_v = get_max_value_function(next_state, sub_task, value_fct, completion_fct, task)
-                cmp = completion_fct[(task, state, sub_task)]
-                values.append(max_v + cmp)
+                if sub_task == "navigate":
+                    for target in targets:
+                        max_v = get_max_value_function(next_state, sub_task,
+                                                       value_fct,
+                                                       completion_fct, task,
+                                                       target)
+                        cmp = completion_fct[(task, state, sub_task, target)]
+                        values.append(max_v + cmp)
+                else:
+                    max_v = get_max_value_function(next_state, sub_task,
+                                                   value_fct, completion_fct,
+                                                   task)
+                    cmp = completion_fct[(task, state, sub_task)]
+                    values.append(max_v + cmp)
             completion_fct[key] = (1-ALPHA)*completion_fct[key] + \
                                   ALPHA*max(values)
 
