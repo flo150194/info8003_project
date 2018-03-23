@@ -1,8 +1,8 @@
 class Player(object):
 
-    def __init__(self, position):
+    def __init__(self, position, resource):
         self.position = position
-        self.resource = None
+        self.resource = resource
 
     def get_position(self):
         return self.position

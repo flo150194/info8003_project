@@ -16,12 +16,13 @@ OBSTACLES = [(2, i) for i in range(4)] + [(i, 2) for i in range(5,8)] + \
             [(6, i) for i in range(4,7)]
 
 # Resources constants
-GOLD, WOOD = 0, 1
+NOTHING, GOLD, WOOD = 0, 1, 2
+RESOURCES = [GOLD, WOOD]
 NB_RESOURCES = 2
 NORTH, SOUTH, EAST, WEST = 0, 1, 2, 3
 ACTIONS = {NORTH: [-1, 0], SOUTH: [1, 0], EAST: [0, 1], WEST: [0, -1]}
 TARGET_QUOTA = 3
-PRINT_RES = {None: "nothing", WOOD: "wood", GOLD: "gold"}
+PRINT_RES = {NOTHING: "nothing", WOOD: "wood", GOLD: "gold"}
 
 class Game(object):
 
@@ -52,7 +53,7 @@ class Game(object):
                     self.board.append(forest)
                     self.forests.append(forest)
                 elif (i,j) == PLAYER:
-                    self.player = Player([i,j])
+                    self.player = Player([i,j], NOTHING)
                     self.board.append(FreeTile([i,j]))
                 elif (i,j) == CHEST:
                     self.chest = Chest([i,j])
@@ -66,6 +67,29 @@ class Game(object):
 
     def get_reward(self):
         return self.reward
+
+    def get_n(self):
+        return self.n
+
+    def get_chest_position(self):
+        return tuple(self.chest.get_position())
+
+    def get_forest_position(self):
+        return [tuple(forest.get_position()) for forest in self.forests]
+
+    def get_mines_position(self):
+        return [tuple(mine.get_position()) for mine in self.gold_mines]
+
+    def get_state(self):
+        pos = self.player.get_position()
+        row, col = pos[0], pos[1]
+        res = self.player.get_resource()
+        wood_quota = TARGET_QUOTA-self.chest.get_wood()
+        gold_qouta = TARGET_QUOTA-self.chest.get_gold()
+        wood_left = [forest.get_capacity() for forest in self.forests]
+        good_left = [mine.get_capacity() for mine in self.gold_mines]
+
+        return row, col, res, [wood_quota, gold_qouta], wood_left, good_left
 
     def move(self, direction):
 
@@ -167,7 +191,7 @@ class Game(object):
                 self.reward += 50
                 self.quotas[GOLD] = True
 
-        self.player.set_resource(None)
+        self.player.set_resource(NOTHING)
         return True
 
     def is_win(self):
