@@ -1,13 +1,33 @@
 from domain.game import *
+from max_q import max_q
 
-DISCOUNT = 0.99
-ALPHA = 0.05
+if __name__ == '__main__':
 
-def epsiode(game):
-    return 0
+    value_function, completion_function = {}, {}
 
-def value_function(policy):
-    return 0
+    eps = 1
 
-def maxq():
-    return 0
+    for i in range(50):
+        game = Game(8)
+        r = max_q(game.get_state(), "root", game, value_function, completion_function, eps)
+        eps = eps**0.99
+        print r
+        print game.get_state()
+
+    good, val = [], []
+    for key in value_function.keys():
+        if value_function[key] != 0:
+            good.append(key)
+            val.append(value_function[key])
+    print len(good)
+
+    good, val = [], []
+    for key in completion_function.keys():
+        if completion_function[key] != 0:
+            good.append(key)
+            val.append(completion_function[key])
+    print len(good)
+
+    print completion_function
+
+

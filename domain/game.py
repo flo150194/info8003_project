@@ -68,6 +68,9 @@ class Game(object):
     def get_reward(self):
         return self.reward
 
+    def get_time(self):
+        return self.time
+
     def get_n(self):
         return self.n
 
@@ -85,11 +88,12 @@ class Game(object):
         row, col = pos[0], pos[1]
         res = self.player.get_resource()
         wood_quota = TARGET_QUOTA-self.chest.get_wood()
-        gold_qouta = TARGET_QUOTA-self.chest.get_gold()
-        wood_left = [forest.get_capacity() for forest in self.forests]
-        good_left = [mine.get_capacity() for mine in self.gold_mines]
+        gold_quota = TARGET_QUOTA-self.chest.get_gold()
+        wood_left = tuple([forest.get_capacity() for forest in self.forests])
+        good_left = tuple([mine.get_capacity() for mine in self.gold_mines])
 
-        return row, col, res, [wood_quota, gold_qouta], wood_left, good_left
+        return row, col, res, tuple([wood_quota, gold_quota]), \
+               wood_left, good_left
 
     def move(self, direction):
 
@@ -97,7 +101,7 @@ class Game(object):
         self.reward = -1
 
         # Stochastic dynamics
-        """
+
         noise = np.random.uniform()
         if noise > 0.7 and noise < 0.8:
             direction = np.mod(direction+1, 4)
@@ -105,7 +109,7 @@ class Game(object):
             direction = np.mod(direction+2, 4)
         elif noise > 0.9 and noise < 1:
             direction = np.mod(direction+3, 4)
-        """
+
 
         action = ACTIONS[direction]
         destination = map(operator.add, self.player.get_position(), action)
@@ -142,7 +146,7 @@ class Game(object):
         self.time += 1
         self.reward = -1
 
-        if self.player.get_resource() is not None:
+        if self.player.get_resource() is not NOTHING:
             self.reward -= 1
             return False
 
@@ -159,7 +163,7 @@ class Game(object):
         self.time += 1
         self.reward = -1
 
-        if self.player.get_resource() is not None:
+        if self.player.get_resource() is not NOTHING:
             return False
 
         for k in range(len(self.gold_mines)):
@@ -176,7 +180,7 @@ class Game(object):
         self.reward = -1
 
         player_res = self.player.get_resource()
-        if player_res is None or not self.chest_next:
+        if player_res is NOTHING or not self.chest_next:
             self.reward -= 1
             return False
 
@@ -184,12 +188,12 @@ class Game(object):
             self.chest.store_wood()
             if self.chest.get_wood() == TARGET_QUOTA:
                 self.reward += 50
-                self.quotas[WOOD] = True
+                self.quotas[WOOD-1] = True
         else:
             self.chest.store_gold()
             if self.chest.get_gold() == TARGET_QUOTA:
                 self.reward += 50
-                self.quotas[GOLD] = True
+                self.quotas[GOLD-1] = True
 
         self.player.set_resource(NOTHING)
         return True
