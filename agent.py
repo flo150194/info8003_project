@@ -1,33 +1,35 @@
-from domain.game import *
-from max_q import max_q
+from domain2.game import *
+from max_q import max_q, pbrs_maxq, eval_pbrs_maxq
 
 if __name__ == '__main__':
 
     value_function, completion_function = {}, {}
+    game = Game(8)
+    seq = pbrs_maxq(game.get_state(), "root", game, value_function,
+                    completion_function, 1)
 
-    eps = 1
+    """
 
-    for i in range(50):
+    epss = np.linspace(1, 0.2, 10, endpoint=True)
+
+    for eps in epss:
+        print eps
         game = Game(8)
-        r = max_q(game.get_state(), "root", game, value_function, completion_function, eps)
-        eps = eps**0.99
-        print r
+        seq = pbrs_maxq(game.get_state(), "root", game, value_function,
+                  completion_function, eps)
+        eps = eps*0.8
         print game.get_state()
 
-    good, val = [], []
-    for key in value_function.keys():
-        if value_function[key] != 0:
-            good.append(key)
-            val.append(value_function[key])
-    print len(good)
+    game = Game(8)
+    rewards = eval_pbrs_maxq(game.get_state(), "root", game, value_function,
+                  completion_function, 0.1)
+    print rewards
+    print np.sum(rewards)
+    """
 
-    good, val = [], []
-    for key in completion_function.keys():
-        if completion_function[key] != 0:
-            good.append(key)
-            val.append(completion_function[key])
-    print len(good)
 
-    print completion_function
+
+
+
 
 

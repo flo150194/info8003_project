@@ -1,7 +1,8 @@
-from domain.game import *
+from domain2.game import *
+from copy import deepcopy
 
 DISCOUNT = 0.999
-ALPHA = 0.3
+ALPHA = 0.1
 PRIMITIVE_TASKS = ["north", "south", "east", "west", "chop", "harvest", "deposit"]
 NON_PRIMITIVE_TASKS = ["root", "get_wood", "get_gold", "unload", "navigate"]
 CHILDREN_TASKS = {"root": ["get_wood", "get_gold", "unload"],
@@ -44,7 +45,7 @@ def is_unload_completed(game):
 
 def is_navigate_completed(game, destination):
     row, col, _, _, _, _ = game.get_state()
-    return manhattan_distance([row, col], list(destination)) == 1
+    return manhattan_distance([row, col], list(destination)) == 0
 
 def primitive_action(game, action):
     """
@@ -159,8 +160,10 @@ def max_q(state, task, game, value_fct, completion_fct, eps, destination=None):
     total_reward, t_elapsed = 0, 0
     t_init = game.get_time()
     k = 0
+    if eps == 0:
+        print task
 
-    while t_elapsed < 1000 and not check_termination(game, task, destination):
+    while t_elapsed < 5000 and not check_termination(game, task, destination):
         sub_tasks = CHILDREN_TASKS[task]
         rd = np.random.uniform()
         target = None
@@ -172,7 +175,6 @@ def max_q(state, task, game, value_fct, completion_fct, eps, destination=None):
                 idx = np.random.randint(0, len(TARGETS[task]))
                 target = TARGETS[task][idx]
         else:
-
             # Case when navigate is a subtask
             if task in ["unload", "get_wood", "get_gold"]:
                 best_q, best_action, best_target = -np.inf, None, None
@@ -273,8 +275,5 @@ def max_q(state, task, game, value_fct, completion_fct, eps, destination=None):
         state = next_state
 
     return total_reward
-
-
-
 
 
