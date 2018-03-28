@@ -1,12 +1,32 @@
 from domain2.game import *
-from max_q import max_q, pbrs_maxq, eval_pbrs_maxq
+from max_q import max_q
+from prbs_max_q import *
 
 if __name__ == '__main__':
 
     value_function, completion_function = {}, {}
+
+    for i in range(3):
+        print i
+        game = Game(8)
+        seq = pbrs_maxq(game.get_state(), "root", game, value_function,
+                        completion_function, 0.8)
+
     game = Game(8)
-    seq = pbrs_maxq(game.get_state(), "root", game, value_function,
-                    completion_function, 1)
+    action, target = "root", None
+    for i in range(5):
+        n_action, n_target = select_best_action(game.get_state(), action, target,
+                                                value_function,
+                                                completion_function, pr=True)
+        if n_action in PRIMITIVE_TASKS:
+            game = primitive_action(game, n_action)
+            state = game.get_state()
+            print (state[0], state[1], n_action, n_target)
+        else:
+            action, target = n_action, n_target
+            state = game.get_state()
+            print (state[0], state[1], action, target)
+
 
     """
 

@@ -1,4 +1,9 @@
 from max_q import *
+from domain2.game import *
+from copy import deepcopy
+
+MAX_TRAINING_EPISODE = 100
+MAX_EVAL_EPISODE = 1000
 
 def evaluate(state, action, v_fct, c_fct, game, target=None):
     """
@@ -124,7 +129,6 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destination=Non
     """
 
     seq = []
-    print task
 
     # Base case
     if task in PRIMITIVE_TASKS:
@@ -137,7 +141,7 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destination=Non
         seq.insert(0, state)
 
     else:
-        while not check_termination(game, task, destination) and game.get_time() < 5:
+        while not check_termination(game, task, destination) and game.get_time() < MAX_TRAINING_EPISODE:
 
             sub_tasks = CHILDREN_TASKS[task]
             rd = np.random.uniform()
@@ -150,33 +154,7 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destination=Non
                     idx = np.random.randint(0, len(TARGETS[task]))
                     target = TARGETS[task][idx]
             else:
-                # Case when navigate is a subtask
-                if task in ["unload", "get_wood", "get_gold"]:
-                    best_q, best_action, best_target = -np.inf, None, None
-                    for sub_action in sub_tasks:
-                        if sub_action == "navigate":
-                            for sub_target in TARGETS[task]:
-                                q = get_max_value_function(state, sub_action,
-                                                           value_fct,
-                                                           completion_fct,
-                                                           sub_target)
-                                if q > best_q:
-                                    best_q, best_action, best_target = q, sub_action, sub_target
-                        else:
-                            q = get_max_value_function(state, sub_action,
-                                                       value_fct,
-                                                       completion_fct,
-                                                       destination)
-                            if q > best_q:
-                                best_q, best_action = q, sub_action
-                    action, target = best_action, best_target
-
-                # When navigate is not a sub-task
-                else:
-                    q = [get_max_value_function(state, action, value_fct,
-                                                completion_fct, destination)
-                         for action in sub_tasks]
-                    action = sub_tasks[np.argmax(q)]
+                action, target = select_best_action(state, task, destination, value_fct, completion_fct)
 
             if task == "navigate":
                 child_seq = pbrs_maxq(state, action, game, value_fct,
@@ -215,7 +193,6 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destination=Non
             seq = child_seq + seq
             state = next_state
 
-    print game.get_state()
     return seq
 
 
@@ -244,7 +221,7 @@ def eval_pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destinatio
         seq.append(DISCOUNT**game.get_time() * reward)
 
     else:
-        while not check_termination(game, task, destination) and game.get_time() < 500:
+        while not check_termination(game, task, destination) and game.get_time() < MAX_EVAL_EPISODE:
 
             sub_tasks = CHILDREN_TASKS[task]
             rd = np.random.uniform()
@@ -258,33 +235,7 @@ def eval_pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destinatio
                     target = TARGETS[task][idx]
             else:
                 # Case when navigate is a subtask
-                if task in ["unload", "get_wood", "get_gold"]:
-                    best_q, best_action, best_target = -np.inf, None, None
-                    for sub_action in sub_tasks:
-                        if sub_action == "navigate":
-                            for sub_target in TARGETS[task]:
-                                q = get_max_value_function(state, sub_action,
-                                                           value_fct,
-                                                           completion_fct,
-                                                           sub_target)
-                                if q > best_q:
-                                    best_q, best_action, best_target = q, sub_action, sub_target
-                        else:
-                            q = get_max_value_function(state, sub_action,
-                                                       value_fct,
-                                                       completion_fct,
-                                                       destination)
-                            if q > best_q:
-                                best_q, best_action = q, sub_action
-                    action, target = best_action, best_target
-
-                # When navigate is not a sub-task
-                else:
-                    q = [get_max_value_function(state, action, value_fct,
-                                                completion_fct, destination)
-                         for action in sub_tasks]
-                    action = sub_tasks[np.argmax(q)]
-
+                action, target = select_best_action(state, task, destination, value_fct, completion_fct)
             if task == "navigate":
                 child_seq = eval_pbrs_maxq(state, action, game, value_fct,
                                       completion_fct, eps, destination)
@@ -302,6 +253,54 @@ def eval_pbrs_maxq(state, task, game, value_fct, completion_fct, eps, destinatio
             state = next_state
 
     return seq
+
+def select_best_action(state, task, destination, value_fct, completion_fct, pr=False):
+    """
+
+    :param state:
+    :param task:
+    :param destination:
+    :param value_fct:
+    :param completion_fct:
+    :return:
+    """
+    sub_tasks = CHILDREN_TASKS[task]
+    target = None
+
+    # Case when navigate is a subtask
+    if task in ["unload", "get_wood", "get_gold"]:
+        best_q, best_action, best_target = -np.inf, None, None
+        for sub_action in sub_tasks:
+            if sub_action == "navigate":
+                for sub_target in TARGETS[task]:
+                    q = get_max_value_function(state, sub_action,
+                                               value_fct,
+                                               completion_fct,
+                                               sub_target)
+                    if q > best_q:
+                        best_q, best_action, best_target = q, sub_action, sub_target
+            else:
+                q = get_max_value_function(state, sub_action,
+                                           value_fct,
+                                           completion_fct,
+                                           destination)
+                if q > best_q:
+                    best_q, best_action = q, sub_action
+        action, target = best_action, best_target
+
+    # When navigate is not a sub-task
+    else:
+        q = [get_max_value_function(state, action, value_fct,
+                                    completion_fct, destination)
+             for action in sub_tasks]
+
+        action = sub_tasks[np.argmax(q)]
+        if pr and task == 'navigate':
+            print sub_tasks
+            print q
+            print action
+
+    return action, target
 
 
 

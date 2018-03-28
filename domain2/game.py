@@ -14,6 +14,7 @@ GOLD_MINES = [(1,0), (6,1)]
 FORESTS = [(3,7), (7,4)]
 OBSTACLES = [(2, i) for i in range(4)] + [(i, 2) for i in range(5,8)] + \
             [(6, i) for i in range(4,7)]
+OBSTACLES = []
 
 # Resources constants
 NOTHING, GOLD, WOOD = 0, 1, 2
@@ -100,6 +101,7 @@ class Game(object):
         self.time += 1
         self.reward = -1
 
+        """
         # Stochastic dynamics
         noise = np.random.uniform()
         if noise > 0.7 and noise < 0.8:
@@ -108,6 +110,7 @@ class Game(object):
             direction = np.mod(direction+2, 4)
         elif noise > 0.9 and noise < 1:
             direction = np.mod(direction+3, 4)
+        """
 
 
 
