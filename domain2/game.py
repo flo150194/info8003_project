@@ -8,12 +8,12 @@ import operator
 import numpy as np
 
 # Coordinates corresponding to the domain displayed during the presentation
-PLAYER = (5,5)
-CHEST = (4,5)
-GOLD_MINES = [(1,0), (6,1)]
-FORESTS = [(3,7), (7,4)]
-OBSTACLES = [(2, i) for i in range(4)] + [(i, 2) for i in range(5,8)] + \
-            [(6, i) for i in range(4,7)]
+PLAYER = (5, 5)
+CHEST = (4, 5)
+GOLD_MINES = [(1, 0), (6, 1)]
+FORESTS = [(3, 7), (7, 4)]
+OBSTACLES = [(2, i) for i in range(4)] + [(i, 2) for i in range(5, 8)] + \
+            [(6, i) for i in range(4, 7)]
 OBSTACLES = []
 
 # Resources constants
@@ -25,18 +25,19 @@ ACTIONS = {NORTH: [-1, 0], SOUTH: [1, 0], EAST: [0, 1], WEST: [0, -1]}
 TARGET_QUOTA = 3
 PRINT_RES = {NOTHING: "nothing", WOOD: "wood", GOLD: "gold"}
 
-class Game(object):
 
-    def __init__(self, n):
+class Game(object):
+    def __init__(self, n, stocha):
 
         self.gold_mines = []
         self.forests = []
         self.obstacles = []
         self.board = []
         self.quotas = [False for k in range(NB_RESOURCES)]
-        self.n= n
+        self.n = n
         self.time = 0
         self.reward = 0
+        self.stocha = stocha
 
         # Board instantiation
         for i in range(n):
@@ -45,23 +46,23 @@ class Game(object):
                     obstacle = Obstacle([i, j])
                     self.board.append(obstacle)
                     self.obstacles.append(obstacle)
-                elif (i,j) in GOLD_MINES:
-                    gold_mine = GoldMine([i,j])
+                elif (i, j) in GOLD_MINES:
+                    gold_mine = GoldMine([i, j])
                     self.board.append(gold_mine)
                     self.gold_mines.append(gold_mine)
-                elif (i,j) in FORESTS:
-                    forest = Forest([i,j])
+                elif (i, j) in FORESTS:
+                    forest = Forest([i, j])
                     self.board.append(forest)
                     self.forests.append(forest)
-                elif (i,j) == PLAYER:
-                    self.player = Player([i,j], NOTHING)
-                    self.board.append(FreeTile([i,j]))
-                elif (i,j) == CHEST:
-                    self.chest = Chest([i,j])
+                elif (i, j) == PLAYER:
+                    self.player = Player([i, j], NOTHING)
+                    self.board.append(FreeTile([i, j]))
+                elif (i, j) == CHEST:
+                    self.chest = Chest([i, j])
                     self.chest_next = True
                     self.board.append(self.chest)
                 else:
-                    self.board.append(FreeTile([i,j]))
+                    self.board.append(FreeTile([i, j]))
 
         self.gold_mines_next = [False for k in self.gold_mines]
         self.forests_next = [False for k in self.forests]
@@ -88,8 +89,8 @@ class Game(object):
         pos = self.player.get_position()
         row, col = pos[0], pos[1]
         res = self.player.get_resource()
-        wood_quota = TARGET_QUOTA-self.chest.get_wood()
-        gold_quota = TARGET_QUOTA-self.chest.get_gold()
+        wood_quota = TARGET_QUOTA - self.chest.get_wood()
+        gold_quota = TARGET_QUOTA - self.chest.get_gold()
         wood_left = tuple([forest.get_capacity() for forest in self.forests])
         good_left = tuple([mine.get_capacity() for mine in self.gold_mines])
 
@@ -101,17 +102,16 @@ class Game(object):
         self.time += 1
         self.reward = -1
 
-        """
-        # Stochastic dynamics
-        noise = np.random.uniform()
-        if noise > 0.7 and noise < 0.8:
-            direction = np.mod(direction+1, 4)
-        elif noise > 0.8 and noise < 0.9:
-            direction = np.mod(direction+2, 4)
-        elif noise > 0.9 and noise < 1:
-            direction = np.mod(direction+3, 4)
-        """
 
+        # Stochastic dynamics
+        if self.stocha:
+            noise = np.random.uniform()
+            if noise > 0.7 and noise < 0.8:
+                direction = np.mod(direction+1, 4)
+            elif noise > 0.8 and noise < 0.9:
+                direction = np.mod(direction+2, 4)
+            elif noise > 0.9 and noise < 1:
+                direction = np.mod(direction+3, 4)
 
 
         action = ACTIONS[direction]
@@ -152,9 +152,13 @@ class Game(object):
             return False
 
         for k in range(len(self.forests)):
-            if self.forests_next[k] and self.forests[k].exploit():
-                self.player.set_resource(WOOD)
-                return True
+            if self.forests_next[k]:
+                if self.forests[k].exploit():
+                    self.player.set_resource(WOOD)
+                    return True
+                else:
+                    self.reward -= 1
+                    return False
 
         self.reward -= 1
         return False
@@ -168,16 +172,20 @@ class Game(object):
             return False
 
         for k in range(len(self.gold_mines)):
-            if self.gold_mines_next[k] and self.gold_mines[k].exploit():
-                self.player.set_resource(GOLD)
-                return True
+            if self.gold_mines_next[k]:
+                if self.gold_mines[k].exploit():
+                    self.player.set_resource(GOLD)
+                    return True
+                else:
+                    self.reward -= 1
+                    return False
 
         self.reward -= 1
         return False
 
     def deposit(self):
 
-        self.time +=1
+        self.time += 1
         self.reward = -1
 
         player_res = self.player.get_resource()
@@ -189,12 +197,12 @@ class Game(object):
             self.chest.store_wood()
             if self.chest.get_wood() == TARGET_QUOTA:
                 self.reward += 50
-                self.quotas[WOOD-1] = True
+                self.quotas[WOOD - 1] = True
         else:
             self.chest.store_gold()
             if self.chest.get_gold() == TARGET_QUOTA:
                 self.reward += 50
-                self.quotas[GOLD-1] = True
+                self.quotas[GOLD - 1] = True
 
         self.player.set_resource(NOTHING)
         return True
@@ -217,10 +225,10 @@ class Game(object):
             b = []
             for j in range(self.n):
                 b.append('|')
-                if (i,j) == tuple(self.player.get_position()):
+                if (i, j) == tuple(self.player.get_position()):
                     b.append("P")
                 else:
-                    tile = self.board[i*self.n+j]
+                    tile = self.board[i * self.n + j]
                     if isinstance(tile, FreeTile):
                         b.append(" ")
                     elif isinstance(tile, Obstacle):
@@ -237,11 +245,7 @@ class Game(object):
         c.append(a)
         print('\n'.join(tuple(c)))
 
-        print("Player is carrying "+str(PRINT_RES[self.player.get_resource()]))+"."
-        print("Chest contains "+str(self.chest.get_gold())+" gold(s) and "+
-              str(self.chest.get_wood())+" wood(s).")
-
-
-if __name__ == "__main__":
-    game = Game(8)
-    game.print_board()
+        print("Player is carrying " + str(
+            PRINT_RES[self.player.get_resource()])) + "."
+        print("Chest contains " + str(self.chest.get_gold()) + " gold(s) and " +
+              str(self.chest.get_wood()) + " wood(s).")

@@ -26,7 +26,7 @@ PRINT_RES = {NOTHING: "nothing", WOOD: "wood", GOLD: "gold"}
 
 class Game(object):
 
-    def __init__(self, n):
+    def __init__(self, n, stocha):
 
         self.gold_mines = []
         self.forests = []
@@ -36,6 +36,7 @@ class Game(object):
         self.n= n
         self.time = 0
         self.reward = 0
+        self.stocha = stocha
 
         # Board instantiation
         for i in range(n):
@@ -101,14 +102,14 @@ class Game(object):
         self.reward = -1
 
         # Stochastic dynamics
-
-        noise = np.random.uniform()
-        if noise > 0.7 and noise < 0.8:
-            direction = np.mod(direction+1, 4)
-        elif noise > 0.8 and noise < 0.9:
-            direction = np.mod(direction+2, 4)
-        elif noise > 0.9 and noise < 1:
-            direction = np.mod(direction+3, 4)
+        if self.stocha:
+            noise = np.random.uniform()
+            if noise > 0.7 and noise < 0.8:
+                direction = np.mod(direction+1, 4)
+            elif noise > 0.8 and noise < 0.9:
+                direction = np.mod(direction+2, 4)
+            elif noise > 0.9 and noise < 1:
+                direction = np.mod(direction+3, 4)
 
 
         action = ACTIONS[direction]
@@ -239,8 +240,3 @@ class Game(object):
         print("Player is carrying "+str(PRINT_RES[self.player.get_resource()]))+"."
         print("Chest contains "+str(self.chest.get_gold())+" gold(s) and "+
               str(self.chest.get_wood())+" wood(s).")
-
-
-if __name__ == "__main__":
-    game = Game(8)
-    game.print_board()
