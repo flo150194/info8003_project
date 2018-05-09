@@ -26,7 +26,7 @@ PRINT_RES = {NOTHING: "nothing", WOOD: "wood", GOLD: "gold"}
 
 class Game(object):
 
-    def __init__(self, n, stocha):
+    def __init__(self, n, stocha, obs):
 
         self.gold_mines = []
         self.forests = []
@@ -41,7 +41,7 @@ class Game(object):
         # Board instantiation
         for i in range(n):
             for j in range(n):
-                if (i, j) in OBSTACLES:
+                if (i, j) in OBSTACLES and obs:
                     obstacle = Obstacle([i, j])
                     self.board.append(obstacle)
                     self.obstacles.append(obstacle)

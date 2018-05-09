@@ -1,10 +1,7 @@
 from domain2.game import *
 from copy import deepcopy
 
-ALPHA = 0.1
-DISCOUNT = 0.99
-MAX_TRAINING_EPISODE = 100
-MAX_EVAL_EPISODE = 100
+TIME_HORIZON = 300
 PRIMITIVE_TASKS = ["north", "south", "east", "west", "chop", "harvest",
                    "deposit"]
 NON_PRIMITIVE_TASKS = ["root", "get_wood", "get_gold", "unload", "navigate"]
@@ -17,6 +14,8 @@ TARGETS = {"get_wood": FORESTS, "get_gold": GOLD_MINES, "unload": [CHEST]}
 
 INIT_CMP = 0
 MAX_Q_0 = False
+
+from matplotlib import pyplot as plt
 
 def flatten(array):
     res = []
@@ -183,7 +182,8 @@ def pbrs(state, task, sub_task, game, destination=None, max_q=False):
             for mine in mines:
                 if mine.distance(destination) == 0:
                     if mine.get_capacity > 0 \
-                            and cur_pos not in GOLD_MINES and state[2] == NOTHING:
+                            and cur_pos not in GOLD_MINES \
+                            and state[2] == NOTHING and state[3][1] > 0:
                         phi = 5
                     else:
                         phi = -5
@@ -194,19 +194,25 @@ def pbrs(state, task, sub_task, game, destination=None, max_q=False):
             for forest in forest:
                 if forest.distance(destination) == 0:
                     if forest.get_capacity > 0 \
-                            and cur_pos not in FORESTS and state[2] == NOTHING:
+                            and cur_pos not in FORESTS \
+                            and state[2] == NOTHING and state[3][0] > 0:
                         phi = 5
                     else:
                         phi = -5
                     break
 
-    elif sub_task in CHILDREN_TASKS['navigate']:
+    elif sub_task in CHILDREN_TASKS['navigate'] and not game.obs:
         cur_dist = manhattan_distance(cur_pos, destination)
 
-        copy = deepcopy(game)
-        copy = primitive_action(copy, sub_task)
-        next_state = copy.get_state()
-        next_pos = tuple([next_state[0], next_state[1]])
+        if sub_task == "north":
+            next_pos = tuple([cur_pos[0]-1, cur_pos[1]])
+        elif sub_task == "south":
+            next_pos = tuple([cur_pos[0] + 1, cur_pos[1]])
+        elif sub_task == "east":
+            next_pos = tuple([cur_pos[0], cur_pos[1]+1])
+        else:
+            next_pos = tuple([cur_pos[0], cur_pos[1]-1])
+
         next_dist = manhattan_distance(next_pos, destination)
 
         if next_dist < cur_dist:
@@ -265,7 +271,7 @@ def pbrs(state, task, sub_task, game, destination=None, max_q=False):
 
 
 def pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
-              destination=None):
+              destination=None, gamma=0.99, alpha=0.01):
     """
     Generates an episode following prbs-max_q algorithm and an epsilon-greedy
     policy.
@@ -277,11 +283,14 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
     :param completion_fct: (dict) Completion function dictionary
     :param eps: (float) epsilon value for epsilon-greedy policy
     :param destination: (tuple) In case of 'navigate' task, location to reach
+    :param gamma: (float) discount factor
+    :param alpha: (float) learning rate
     :return: (float) the total reward of performing the task in the current state
                      according to max_q algorithm
     """
 
     seq = []
+    rewards = []
 
     # Base case
     if task in PRIMITIVE_TASKS:
@@ -290,12 +299,13 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
         key = flatten((next_state, task))
         if key not in value_fct:
             value_fct[key] = 0
-        value_fct[key] = (1 - ALPHA) * value_fct[key] + ALPHA * reward
+        value_fct[key] = (1 - alpha) * value_fct[key] + alpha * reward
         seq.insert(0, state)
+        rewards.append(gamma ** game.get_time() * reward)
 
     else:
-        while not check_termination(game, task,
-                                    destination) and game.get_time() < MAX_TRAINING_EPISODE:
+        while not check_termination(game, task, destination) \
+                and game.get_time() < TIME_HORIZON:
 
             sub_tasks = CHILDREN_TASKS[task]
             rd = np.random.uniform()
@@ -313,14 +323,17 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
                                                     game)
 
             if task == "navigate":
-                child_seq = pbrs_maxq(state, action, game, value_fct,
-                                      completion_fct, eps, destination)
+                child_seq, reward = pbrs_maxq(state, action, game, value_fct,
+                                              completion_fct, eps, destination,
+                                              gamma=gamma, alpha=alpha)
             elif action == 'navigate':
-                child_seq = pbrs_maxq(state, action, game, value_fct,
-                                      completion_fct, eps, target)
+                child_seq, reward = pbrs_maxq(state, action, game, value_fct,
+                                              completion_fct, eps, target,
+                                              gamma=gamma, alpha=alpha)
             else:
-                child_seq = pbrs_maxq(state, action, game, value_fct,
-                                      completion_fct, eps)
+                child_seq, reward = pbrs_maxq(state, action, game , value_fct,
+                                              completion_fct, eps,
+                                              gamma=gamma, alpha=alpha)
 
             # Observe results of sub-task execution
             next_state = game.get_state()
@@ -351,19 +364,20 @@ def pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
                 new_cmp = completion_fct[new_key]
                 if key not in completion_fct:
                     completion_fct[key] = INIT_CMP
-                completion_fct[key] = (1 - ALPHA) * completion_fct[key] + \
-                                      ALPHA * (DISCOUNT ** n * (
+                completion_fct[key] = (1 - alpha) * completion_fct[key] + \
+                                      alpha * (gamma ** n * (
                                       max_v + new_cmp + new_pbrs) - cur_pbrs)
                 n += 1
 
             seq = child_seq + seq
+            rewards = reward + rewards
             state = next_state
 
-    return seq
+    return seq, rewards
 
 
 def eval_pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
-                   destination=None, pr=False):
+                   destination=None, gamma=0.99):
     """
     Generates an episode following prbs max_q algorithm and an epsilon-greedy
     policy.
@@ -375,25 +389,22 @@ def eval_pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
     :param completion_fct: (dict) Completion function dictionary
     :param eps: (float) epsilon value for epsilon-greedy policy
     :param destination: (tuple) In case of 'navigate' task, location to reach
+    :param gamma: (float) discount factor
     :return: (float) the total reward of performing the task in the current state
                      according to max_q algorithm
     """
 
     seq = []
 
-    if pr:
-        print game.get_state()
-        print (task, destination)
-
     # Base case
     if task in PRIMITIVE_TASKS:
         game = primitive_action(game, task)
         next_state, reward = game.get_state(), game.get_reward()
-        seq.append(DISCOUNT ** game.get_time() * reward)
+        seq.append(gamma ** game.get_time() * reward)
 
     else:
         while not check_termination(game, task, destination) \
-                and game.get_time() < MAX_EVAL_EPISODE:
+                and game.get_time() < TIME_HORIZON:
 
             sub_tasks = CHILDREN_TASKS[task]
             rd = np.random.uniform()
@@ -406,20 +417,21 @@ def eval_pbrs_maxq(state, task, game, value_fct, completion_fct, eps,
                     idx = np.random.randint(0, len(TARGETS[task]))
                     target = TARGETS[task][idx]
             else:
-                # Case when navigate is a subtask
                 action, target = select_best_action(state, task, destination,
                                                     value_fct, completion_fct,
                                                     game)
             if task == "navigate":
                 child_seq = eval_pbrs_maxq(state, action, game, value_fct,
                                            completion_fct, eps, destination,
-                                           pr=pr)
+                                           gamma=gamma)
             elif action == 'navigate':
                 child_seq = eval_pbrs_maxq(state, action, game, value_fct,
-                                           completion_fct, eps, target, pr=pr)
+                                           completion_fct, eps, target,
+                                           gamma=gamma)
             else:
                 child_seq = eval_pbrs_maxq(state, action, game, value_fct,
-                                           completion_fct, eps, pr=pr)
+                                           completion_fct, eps,
+                                           gamma=gamma)
 
             # Observe results of sub-task execution
             next_state = game.get_state()
@@ -441,15 +453,22 @@ def select_best_action(state, task, destination, value_fct, completion_fct,
     :param completion_fct:
     :return:
     """
-
-    if value_fct is not None and completion_fct is not None:
-        val, action, target = evaluate(state, task, value_fct, completion_fct,
-                                       game, destination, pr=pr)
-    else:
+    # Constant policy
+    if value_fct is None:
         if task == "root":
             action, target = "get_wood", None
-        else:
+        elif task == "get_wood" and completion_fct == "chop":
             action, target = "chop", None
+        elif task == "get_wood" and completion_fct == "north":
+            action, target = "navigate", (0,0)
+        else:
+            action, target = "north", (0,0)
+
+    # PBRS-Max-q policy
+    else:
+        val, action, target = evaluate(state, task, value_fct, completion_fct,
+                                       game, destination, pr=pr)
+
 
     # Case when navigate is a subtask
     """
@@ -479,7 +498,20 @@ def select_best_action(state, task, destination, value_fct, completion_fct,
 
     return action, target
 
+if __name__ == '__main__':
+    a = 1
 
+    x = np.linspace(1, 10, 10, endpoint=True)
+
+    plt.figure()
+    plt.plot(x, x ** 2, label='$x^2$')
+    plt.plot(x, x, label='$x$')
+    plt.plot(x, x ** 3, label='$x^3$')
+
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+               ncol=3, mode="expand", borderaxespad=0.)
+
+    plt.show()
 
 
 

@@ -14,7 +14,6 @@ GOLD_MINES = [(1, 0), (6, 1)]
 FORESTS = [(3, 7), (7, 4)]
 OBSTACLES = [(2, i) for i in range(4)] + [(i, 2) for i in range(5, 8)] + \
             [(6, i) for i in range(4, 7)]
-OBSTACLES = []
 
 # Resources constants
 NOTHING, GOLD, WOOD = 0, 1, 2
@@ -27,7 +26,7 @@ PRINT_RES = {NOTHING: "nothing", WOOD: "wood", GOLD: "gold"}
 
 
 class Game(object):
-    def __init__(self, n, stocha):
+    def __init__(self, n, stocha, obs, custom_reward):
 
         self.gold_mines = []
         self.forests = []
@@ -38,11 +37,13 @@ class Game(object):
         self.time = 0
         self.reward = 0
         self.stocha = stocha
+        self.obs = obs
+        self.custom_reward = custom_reward
 
         # Board instantiation
         for i in range(n):
             for j in range(n):
-                if (i, j) in OBSTACLES:
+                if (i, j) in OBSTACLES and obs:
                     obstacle = Obstacle([i, j])
                     self.board.append(obstacle)
                     self.obstacles.append(obstacle)
@@ -155,6 +156,8 @@ class Game(object):
             if self.forests_next[k]:
                 if self.forests[k].exploit():
                     self.player.set_resource(WOOD)
+                    if self.custom_reward:
+                        self.reward += 2
                     return True
                 else:
                     self.reward -= 1
@@ -175,6 +178,8 @@ class Game(object):
             if self.gold_mines_next[k]:
                 if self.gold_mines[k].exploit():
                     self.player.set_resource(GOLD)
+                    if self.custom_reward:
+                        self.reward += 2
                     return True
                 else:
                     self.reward -= 1
@@ -198,11 +203,15 @@ class Game(object):
             if self.chest.get_wood() == TARGET_QUOTA:
                 self.reward += 50
                 self.quotas[WOOD - 1] = True
+            elif self.chest.get_wood() < TARGET_QUOTA and self.custom_reward:
+                self.reward += 5
         else:
             self.chest.store_gold()
             if self.chest.get_gold() == TARGET_QUOTA:
                 self.reward += 50
                 self.quotas[GOLD - 1] = True
+            elif self.chest.get_gold() < TARGET_QUOTA and self.custom_reward:
+                self.reward += 5
 
         self.player.set_resource(NOTHING)
         return True
